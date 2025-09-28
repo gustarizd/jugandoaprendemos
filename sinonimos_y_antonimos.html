@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sinonimón y Antonimón: ¡La Batalla de las Palabras!</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; background-color: #f0f8ff; margin: 0; padding: 0;}
+    h1 { background-color: #4CAF50; color: white; padding: 20px;}
+    .player-setup, .question-container, .podium-container { display: none; margin-top: 20px;}
+    .avatar { font-size: 40px; cursor: pointer; padding: 5px;}
+    .selected { border: 2px solid #4CAF50; border-radius: 10px;}
+    .scoreboard { display: flex; justify-content: center; gap: 20px; margin-top: 10px;}
+    .scoreboard div { background: #fff; padding: 10px; border-radius: 10px;}
+    .options { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 15px;}
+    button { padding: 10px 20px; margin-top: 10px;}
+    .feedback { font-weight: bold; margin-top: 10px;}
+    .progress-bar { width: 80%; background: #ddd; margin: 10px auto; height: 20px; border-radius: 10px;}
+    .progress { height: 100%; background: #4CAF50; width: 0%; border-radius: 10px;}
+    .timer { font-size: 20px; margin-top: 10px; color: #ff0000;}
+    .podium { display: flex; justify-content: center; align-items: flex-end; gap: 20px; margin-top: 30px;}
+    .player-podium { background: #fff; padding: 10px; border-radius: 10px; width: 150px;}
+    .confetti {position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;}
+  </style>
+</head>
+<body>
+
+<h1>🎉 Sinonimón y Antonimón: ¡La Batalla de las Palabras! 🎉</h1>
+
+<div class="player-setup" id="setup">
+  <h2>Elige nombres y avatares</h2>
+  <div>
+    <label>Jugador 1: <input type="text" id="name1" placeholder="Nombre"></label><br>
+    <div id="avatars1"></div>
+  </div>
+  <div>
+    <label>Jugador 2: <input type="text" id="name2" placeholder="Nombre"></label><br>
+    <div id="avatars2"></div>
+  </div>
+  <div>
+    <label>Jugador 3: <input type="text" id="name3" placeholder="Nombre"></label><br>
+    <div id="avatars3"></div>
+  </div>
+  <button onclick="startGame()">Iniciar Juego</button>
+</div>
+
+<div class="question-container" id="game">
+  <div class="scoreboard" id="scores"></div>
+  <div class="progress-bar"><div class="progress" id="progress"></div></div>
+  <div class="timer" id="timer"></div>
+  <h2 id="question"></h2>
+  <div class="options" id="options"></div>
+  <div class="feedback" id="feedback"></div>
+</div>
+
+<div class="podium-container" id="podiumContainer">
+  <h2>🎉 ¡Resultados Finales! 🎉</h2>
+  <div class="podium" id="podium"></div>
+  <button onclick="restartGame()">Volver a empezar</button>
+  <canvas class="confetti" id="confettiCanvas"></canvas>
+</div>
+
+<script>
+const avatars = ["😀","😎","🤓","🦸‍♂️","🦸‍♀️","🦄"];
+
+let players = [
+  {name:'', avatar:'', score:0},
+  {name:'', avatar:'', score:0},
+  {name:'', avatar:'', score:0}
+];
+
+let preguntas = [
+  {texto:"¿Cuál es sinónimo de feliz?", opciones:["Contento","Triste","Molesto"], correcta:0},
+  {texto:"¿Cuál es antónimo de alto?", opciones:["Pequeño","Bajo","Grande"], correcta:1},
+  {texto:"¿Cuál es sinónimo de rápido?", opciones:["Veloz","Lento","Pesado"], correcta:0},
+  {texto:"¿Cuál es antónimo de día?", opciones:["Noche","Sol","Mañana"], correcta:0},
+  {texto:"¿Cuál es sinónimo de grande?", opciones:["Enorme","Pequeño","Chico"], correcta:0},
+  {texto:"¿Cuál es antónimo de frío?", opciones:["Helado","Caliente","Nevado"], correcta:1},
+  {texto:"¿Cuál es sinónimo de bonito?", opciones:["Hermoso","Feo","Horrible"], correcta:0},
+  {texto:"¿Cuál es antónimo de comenzar?", opciones:["Finalizar","Iniciar","Empezar"], correcta:0},
+  {texto:"¿Cuál es sinónimo de hablar?", opciones:["Conversar","Callar","Gritar"], correcta:0},
+  {texto:"¿Cuál es antónimo de cerca?", opciones:["Lejos","Próximo","Cercano"], correcta:0}
+];
+
+function mezclarPreguntas(array){
+  for(let i=array.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [array[i],array[j]]=[array[j],array[i]];
+  }
+  return array;
+}
+
+preguntas=mezclarPreguntas(preguntas);
+
+let currentQuestion=0;
+let currentPlayer=0;
+let timerInterval;
+
+function createAvatars(){
+  avatars.forEach(av=>{
+    document.getElementById("avatars1").innerHTML+=`<span class="avatar" onclick="selectAvatar(0,'${av}',this)">${av}</span>`;
+    document.getElementById("avatars2").innerHTML+=`<span class="avatar" onclick="selectAvatar(1,'${av}',this)">${av}</span>`;
+    document.getElementById("avatars3").innerHTML+=`<span class="avatar" onclick="selectAvatar(2,'${av}',this)">${av}</span>`;
+  });
+}
+createAvatars();
+
+function selectAvatar(playerIndex,avatar,el){
+  players[playerIndex].avatar=avatar;
+  el.parentNode.querySelectorAll('.avatar').forEach(a=>a.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+document.getElementById('setup').style.display='block';
+
+function startGame(){
+  players[0].name=document.getElementById('name1').value||'Jugador 1';
+  players[1].name=document.getElementById('name2').value||'Jugador 2';
+  players[2].name=document.getElementById('name3').value||'Jugador 3';
+  players.forEach(p=>p.score=0);
+  document.getElementById('setup').style.display='none';
+  document.getElementById('game').style.display='block';
+  showScores();
+  showQuestion();
+}
+
+function showScores(){
+  let html='';
+  players.forEach(p=>{
+    html+=`<div>${p.avatar} <br>${p.name}: ${p.score} pts</div>`;
+  });
+  document.getElementById('scores').innerHTML=html;
+}
+
+function showQuestion(){
+  clearInterval(timerInterval);
+  if(currentQuestion<preguntas.length){
+    const q=preguntas[currentQuestion];
+    document.getElementById('question').textContent=q.texto+" ("+players[currentPlayer].name+")";
+    document.getElementById('feedback').textContent='';
+    const optionsDiv=document.getElementById('options');
+    optionsDiv.innerHTML='';
+    q.opciones.forEach((op,index)=>{
+      const btn=document.createElement('button');
+      btn.textContent=op;
+      btn.onclick=()=>checkAnswer(index);
+      optionsDiv.appendChild(btn);
+    });
+    document.getElementById('progress').style.width=((currentQuestion)/preguntas.length)*100+'%';
+    startTimer();
+  }else{
+    endGame();
+  }
+}
+
+function startTimer(){
+  let timeLeft=7;
+  document.getElementById('timer').textContent="Tiempo: "+timeLeft+"s";
+  timerInterval=setInterval(()=>{
+    timeLeft--;
+    document.getElementById('timer').textContent="Tiempo: "+timeLeft+"s";
+    if(timeLeft<=0){
+      clearInterval(timerInterval);
+      document.getElementById('feedback').textContent='⏰ Tiempo agotado. La respuesta correcta era: '+preguntas[currentQuestion].opciones[preguntas[currentQuestion].correcta];
+      currentQuestion++;
+      currentPlayer=(currentPlayer+1)%players.length;
+      setTimeout(showQuestion,1500);
+    }
+  },1000);
+}
+
+function checkAnswer(selected){
+  clearInterval(timerInterval);
+  const q=preguntas[currentQuestion];
+  if(selected===q.correcta){
+    players[currentPlayer].score+=100;
+    document.getElementById('feedback').textContent='✅ ¡Bien hecho '+players[currentPlayer].name+'!';
+  }else{
+    document.getElementById('feedback').textContent='❌ Incorrecto. La respuesta correcta es: '+q.opciones[q.correcta];
+  }
+  showScores();
+  currentQuestion++;
+  currentPlayer=(currentPlayer+1)%players.length;
+  setTimeout(showQuestion,1500);
+}
+
+function endGame(){
+  document.getElementById('game').style.display='none';
+  document.getElementById('podiumContainer').style.display='block';
+  startConfetti();
+  let sorted=[...players].sort((a,b)=>b.score-a.score);
+  let podiumHTML='';
+  podiumHTML+=`<div class="player-podium">🥇 1er Puesto<br>${sorted[0].avatar}<br>${sorted[0].name}<br>${sorted[0].score} pts</div>`;
+  podiumHTML+=`<div class="player-podium">🥈 2do Puesto<br>${sorted[1].avatar}<br>${sorted[1].name}<br>${sorted[1].score} pts</div>`;
+  podiumHTML+=`<div class="player-podium">🥉 3er Puesto<br>${sorted[2].avatar}<br>${sorted[2].name}<br>${sorted[2].score} pts</div>`;
+  document.getElementById('podium').innerHTML=podiumHTML;
+  document.getElementById('progress').style.width='100%';
+}
+
+function restartGame(){
+  location.reload();
+}
+
+// Confetti
+const confettiCanvas=document.getElementById('confettiCanvas');
+const ctx=confettiCanvas.getContext('2d');
+confettiCanvas.width=window.innerWidth;
+confettiCanvas.height=window.innerHeight;
+let confettiParticles=[];
+function startConfetti(){
+  for(let i=0;i<150;i++){
+    confettiParticles.push({x:Math.random()*confettiCanvas.width,y:Math.random()*confettiCanvas.height,r:Math.random()*6+2,d:Math.random()*0.5+0.5});
+  }
+  animateConfetti();
+}
+function animateConfetti(){
+  ctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height);
+  confettiParticles.forEach(p=>{
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.r,0,Math.PI*2,true);
+    ctx.fillStyle='hsl('+360*Math.random()+',100%,50%)';
+    ctx.fill();
+    p.y+=p.d*4;
+    if(p.y>confettiCanvas.height)p.y=0;
+  });
+  requestAnimationFrame(animateConfetti);
+}
+</script>
+
+</body>
+</html>
